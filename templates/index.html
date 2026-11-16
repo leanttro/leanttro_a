@@ -4,22 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Amigo Secreto 🎁 Organize sua confra em minutos</title>
-<meta name="description" content="Crie seu grupo, convide a galera e sorteie o amigo secreto em minutos. Rápido, grátis e sem confusão!">
+<meta name="description" content="{% if convite %}Toque no link, crie sua conta rapidinho e entre no grupo da galera. Bora?{% else %}Crie seu grupo, convide a galera e sorteie o amigo secreto em minutos. Rápido, grátis e sem confusão!{% endif %}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Amigo Secreto">
 <meta property="og:locale" content="pt_BR">
-<meta property="og:title" content="Amigo Secreto 🎁 Bora organizar a confra?">
-<meta property="og:description" content="Crie seu grupo, convide a galera e sorteie o amigo secreto em minutos. Rápido, grátis e sem confusão!">
-<meta property="og:url" content="https://amigo.leanttro.com/">
-<meta property="og:image" content="https://amigo.leanttro.com/og-image.png">
+<meta property="og:title" content="{% if convite %}Você foi convidado(a) pro Amigo Secreto! 🎁{% else %}Amigo Secreto 🎁 Bora organizar a confra?{% endif %}">
+<meta property="og:description" content="{% if convite %}Toque no link, crie sua conta rapidinho e entre no grupo da galera. Bora?{% else %}Crie seu grupo, convide a galera e sorteie o amigo secreto em minutos. Rápido, grátis e sem confusão!{% endif %}">
+<meta property="og:url" content="{{ base_url }}">
+<meta property="og:image" content="{{ base_url }}og-image.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Amigo Secreto - Organize sua confra em minutos">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Amigo Secreto 🎁 Bora organizar a confra?">
-<meta name="twitter:description" content="Crie seu grupo, convide a galera e sorteie o amigo secreto em minutos.">
-<meta name="twitter:image" content="https://amigo.leanttro.com/og-image.png">
+<meta name="twitter:title" content="{% if convite %}Você foi convidado(a) pro Amigo Secreto! 🎁{% else %}Amigo Secreto 🎁 Bora organizar a confra?{% endif %}">
+<meta name="twitter:description" content="{% if convite %}Toque no link, crie sua conta rapidinho e entre no grupo da galera. Bora?{% else %}Crie seu grupo, convide a galera e sorteie o amigo secreto em minutos.{% endif %}">
+<meta name="twitter:image" content="{{ base_url }}og-image.png">
 <meta name="theme-color" content="#ff0f7b">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
