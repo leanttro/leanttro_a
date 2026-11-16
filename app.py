@@ -881,7 +881,9 @@ def create_app(config=None):
 
     @app.get("/")
     def home():
-        return render_template("index.html", nonce=g.nonce)
+        base = request.url_root                       # https://qualquer-dominio/  (funciona em amigo.* e amigosecreto.*)
+        convite = bool(request.args.get("convite"))
+        return render_template("index.html", nonce=g.nonce, base_url=base, convite=convite)
 
     @app.get("/og-image.png")                      # imagem de prévia do link (WhatsApp, Instagram, etc.)
     def og_image():
