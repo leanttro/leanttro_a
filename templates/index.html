@@ -96,7 +96,7 @@ function h(tag, props, ...kids) {
   for (const c of kids.flat(Infinity)) if (c !== null && c !== undefined && c !== false) e.append(c.nodeType ? c : document.createTextNode(c));
   return e;
 }
-const add = (el, ...kids) => add(el, ...kids.flat(Infinity).filter(c => c !== null && c !== undefined && c !== false));
+const add = (el, ...kids) => el.append(...kids.flat(Infinity).filter(c => c !== null && c !== undefined && c !== false));
 function senhaInput(placeholder, autocomplete) {
   const inp = h("input", { type: "password", placeholder, autocomplete });
   const btn = h("button", { type: "button", class: "olho", "aria-label": "Mostrar senha", tabindex: "-1" }, "👁️");
