@@ -28,7 +28,7 @@
 {% raw %}
 :root{--primary:#ff0f7b;--secondary:#f89b29;--tertiary:#4200ff;--bg-deep:#0f0c29;--glass-border:rgba(255,255,255,.2)}
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Outfit',sans-serif}
-body{background:var(--bg-deep);color:#fff;min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:24px 0}
+body{background:var(--bg-deep);color:#fff;min-height:100vh;min-height:100dvh;display:flex;justify-content:center;align-items:flex-start;padding:24px 0}
 .animated-bg{position:fixed;inset:0;background:linear-gradient(45deg,#4200ff,#ff0f7b,#f89b29,#00c6ff);background-size:400% 400%;animation:gm 15s ease infinite;z-index:-2}
 @keyframes gm{0%,100%{background-position:0 50%}50%{background-position:100% 50%}}
 .app-container{width:92%;max-width:460px;background:rgba(0,0,0,.45);backdrop-filter:blur(25px);-webkit-backdrop-filter:blur(25px);border:1px solid var(--glass-border);border-top:1px solid rgba(255,255,255,.5);border-radius:30px;padding:34px 26px;box-shadow:0 50px 70px -20px rgba(0,0,0,.6);animation:pop .6s cubic-bezier(.175,.885,.32,1.275)}
@@ -62,6 +62,10 @@ a{color:#fff}.code{font-family:monospace;font-size:1.3rem;letter-spacing:3px;col
 #toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-100px);background:#fff;color:#000;padding:13px 26px;border-radius:50px;font-weight:700;opacity:0;transition:.4s;z-index:9}
 #toast.show{opacity:1;transform:translateX(-50%)}
 label{font-size:.8rem;opacity:.8;display:block;margin:2px 0 4px}
+.pw{position:relative}.pw input{padding-right:54px}
+.pw button.olho{position:absolute;right:6px;top:6px;width:42px;height:42px;padding:0;margin:0;background:transparent;box-shadow:none;font-size:18px;line-height:1;border-radius:10px;text-transform:none}
+.pw button.olho:hover{transform:none;background:rgba(255,255,255,.12)}
+button.link{background:none;box-shadow:none;text-transform:none;font-weight:500;font-size:.85rem;text-decoration:underline;margin:4px 0 0;padding:8px;opacity:.85}
 @media (max-width:768px){
 body.auth{align-items:center;min-height:100vh;min-height:100dvh;padding:16px 0}
 html.sem-rolagem,html.sem-rolagem body{height:100%;overflow:hidden}
@@ -89,8 +93,21 @@ function h(tag, props, ...kids) {
     else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
     else if (v !== null && v !== undefined && v !== false) e.setAttribute(k, v === true ? "" : v);
   }
-  for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) e.append(c.nodeType ? c : document.createTextNode(c));
+  for (const c of kids.flat(Infinity)) if (c !== null && c !== undefined && c !== false) e.append(c.nodeType ? c : document.createTextNode(c));
   return e;
+}
+const add = (el, ...kids) => add(el, ...kids.flat(Infinity).filter(c => c !== null && c !== undefined && c !== false));
+function senhaInput(placeholder, autocomplete) {
+  const inp = h("input", { type: "password", placeholder, autocomplete });
+  const btn = h("button", { type: "button", class: "olho", "aria-label": "Mostrar senha", tabindex: "-1" }, "👁️");
+  btn.addEventListener("click", () => {
+    const ver = inp.type === "password";
+    inp.type = ver ? "text" : "password"; btn.textContent = ver ? "🙈" : "👁️";
+    btn.setAttribute("aria-label", ver ? "Ocultar senha" : "Mostrar senha"); inp.focus();
+  });
+  const w = h("div", { class: "pw" }, inp, btn);
+  Object.defineProperty(w, "value", { get: () => inp.value, set: v => { inp.value = v; } });
+  return w;
 }
 function toast(m) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2800); }
 function render(...nodes) { clearInterval(TIMER); document.body.classList.remove("auth"); document.documentElement.classList.remove("sem-rolagem"); $app.replaceChildren(...nodes.flat().filter(n => n !== null && n !== undefined && n !== false)); }
@@ -109,7 +126,7 @@ const go = (fn) => async (...a) => { try { await fn(...a); } catch (e) { toast(e
 function viewAuth(modo = "login") {
   const erro = h("p", { class: "err" });
   const f = { nome: h("input", { placeholder: "Seu nome", autocomplete: "name" }), email: h("input", { type: "email", placeholder: "Seu e-mail", autocomplete: "email" }),
-    senha: h("input", { type: "password", placeholder: modo === "login" ? "Senha" : "Senha (mín. 8 caracteres)", autocomplete: modo === "login" ? "current-password" : "new-password" }) };
+    senha: senhaInput(modo === "login" ? "Senha" : "Senha (mín. 8 caracteres)", modo === "login" ? "current-password" : "new-password") };
   const enviar = async () => {
     erro.textContent = "";
     try {
@@ -123,9 +140,42 @@ function viewAuth(modo = "login") {
     h("p", { class: "sub" }, "Organize sua confra em minutos"),
     modo === "cadastro" ? f.nome : null, f.email, f.senha, erro,
     h("button", { onclick: enviar }, modo === "login" ? "Entrar" : "Criar minha conta"),
-    h("button", { class: "ghost", onclick: () => viewAuth(modo === "login" ? "cadastro" : "login") }, modo === "login" ? "Não tenho conta" : "Já tenho conta"));
+    h("button", { class: "ghost", onclick: () => viewAuth(modo === "login" ? "cadastro" : "login") }, modo === "login" ? "Não tenho conta" : "Já tenho conta"),
+    modo === "login" ? h("button", { class: "link", onclick: viewEsqueci }, "Esqueci minha senha") : null);
+  layoutAuth(modo === "login");
+}
+function layoutAuth(semRolagem) {
   document.body.classList.add("auth");                                   // centraliza no mobile
-  document.documentElement.classList.toggle("sem-rolagem", modo === "login");   // sem rolagem só no login
+  document.documentElement.classList.toggle("sem-rolagem", semRolagem);  // sem rolagem (só telas curtas)
+}
+
+// ── Esqueci / redefinir senha ─────────────────────────────────────────────
+function viewEsqueci() {
+  const em = h("input", { type: "email", placeholder: "Seu e-mail", autocomplete: "email" });
+  const msg = h("p", { class: "sub" }, "Digite seu e-mail e enviaremos um link para criar uma nova senha.");
+  render(h("span", { class: "badge" }, "AMIGO SECRETO"), h("h1", {}, "Esqueci a senha"), msg, em,
+    h("button", { onclick: go(async () => {
+      await api("POST", "/esqueci", { email: em.value });
+      msg.textContent = "Pronto! Se esse e-mail estiver cadastrado, você vai receber o link em instantes. Confira também o spam.";
+    }) }, "Enviar link"),
+    h("button", { class: "ghost", onclick: () => viewAuth("login") }, "Voltar"));
+  layoutAuth(true);
+}
+
+function viewRedefinir(token) {
+  const n1 = senhaInput("Nova senha (mín. 8 caracteres)", "new-password"), n2 = senhaInput("Repita a nova senha", "new-password"), erro = h("p", { class: "err" });
+  render(h("span", { class: "badge" }, "AMIGO SECRETO"), h("h1", {}, "Nova senha"),
+    h("p", { class: "sub" }, "Escolha sua nova senha."), n1, n2, erro,
+    h("button", { onclick: async () => {
+      erro.textContent = "";
+      if (n1.value !== n2.value) { erro.textContent = "As senhas não são iguais."; return; }
+      try {
+        await api("POST", "/redefinir", { token, nova: n1.value });
+        history.replaceState({}, "", "/"); toast("Senha alterada! Agora é só entrar ✅"); viewAuth("login");
+      } catch (e) { erro.textContent = e.message; }
+    } }, "Salvar nova senha"),
+    h("button", { class: "ghost", onclick: () => { history.replaceState({}, "", "/"); viewAuth("login"); } }, "Cancelar"));
+  layoutAuth(true);
 }
 
 // ── Lista de grupos ───────────────────────────────────────────────────────
@@ -182,13 +232,13 @@ async function viewGrupo(gid, aba = "amigo") {
 
 async function abaAmigo(el, g) {
   if (g.status !== "sorteado") {
-    el.append(h("div", { class: "reveal" }, h("h2", {}, "Aguardando o sorteio…"), h("p", { class: "sub" }, `${g.total} participante(s) no grupo.`)));
+    add(el, h("div", { class: "reveal" }, h("h2", {}, "Aguardando o sorteio…"), h("p", { class: "sub" }, `${g.total} participante(s) no grupo.`)));
     return;
   }
   const r = await api("GET", `/grupos/${g.id}/meu-amigo`);
   const nome = h("div", { id: "nome" }, r.nome);
   nome.addEventListener("click", () => { nome.classList.toggle("on"); if (nome.classList.contains("on")) confetti({ particleCount: 150, spread: 70, origin: { y: .6 }, colors: ["#ff0f7b", "#f89b29", "#4200ff"] }); });
-  el.append(h("div", { class: "reveal" }, h("p", { class: "sub" }, "Sua missão é presentear:"), nome, h("p", { class: "sub", style: "margin-top:12px;font-size:.75rem" }, "(toque no nome para revelar)")),
+  add(el, h("div", { class: "reveal" }, h("p", { class: "sub" }, "Sua missão é presentear:"), nome, h("p", { class: "sub", style: "margin-top:12px;font-size:.75rem" }, "(toque no nome para revelar)")),
     h("h3", {}, "O que essa pessoa quer"),
     r.desejos.length ? r.desejos.map(w => h("div", { class: "card" }, w.observacao || "", w.link ? h("small", {}, h("a", { href: w.link, target: "_blank", rel: "noopener noreferrer nofollow" }, "Ver link 🔗")) : null))
       : h("p", { class: "muted" }, "Ainda não pediu nada. Use o chat anônimo!"));
@@ -203,14 +253,14 @@ async function abaDesejos(el, g) {
       w.meu ? h("button", { class: "sm ghost", style: "margin-top:8px", onclick: go(async () => { await api("DELETE", `/grupos/${g.id}/desejos/${w.id}`); carregar(); }) }, "Remover") : null))
       : [h("p", { class: "muted" }, "Ninguém pediu nada ainda…")]));
   });
-  el.append(h("h3", {}, "Adicionar meu presente"), link, obs,
+  add(el, h("h3", {}, "Adicionar meu presente"), link, obs,
     h("button", { onclick: go(async () => { await api("POST", `/grupos/${g.id}/desejos`, { link: link.value, observacao: obs.value }); link.value = obs.value = ""; toast("Desejo salvo!"); carregar(); }) }, "Publicar desejo ✨"),
     h("h3", {}, "Lista da galera"), lista);
   carregar();
 }
 
 function abaChat(el, g) {
-  if (g.status !== "sorteado") { el.append(h("p", { class: "muted" }, "O chat abre depois do sorteio.")); return; }
+  if (g.status !== "sorteado") { add(el, h("p", { class: "muted" }, "O chat abre depois do sorteio.")); return; }
   let canal = "para_meu_amigo";
   const box = h("div", { class: "chat" }), inp = h("input", { placeholder: "Mensagem anônima…", maxlength: 1000 });
   const sel = h("select", {}, h("option", { value: "para_meu_amigo" }, "Falar com quem eu tirei"), h("option", { value: "do_meu_amigo" }, "Falar com meu amigo secreto"));
@@ -224,23 +274,23 @@ function abaChat(el, g) {
   const enviar = go(async () => { if (!inp.value.trim()) return; await api("POST", `/grupos/${g.id}/chat/${canal}`, { texto: inp.value }); inp.value = ""; ler(); });
   sel.addEventListener("change", () => { canal = sel.value; ler(); });
   inp.addEventListener("keydown", e => { if (e.key === "Enter") enviar(); });
-  el.append(sel, box, h("div", { class: "row" }, inp, h("button", { class: "sm", onclick: enviar }, "➤")));
+  add(el, sel, box, h("div", { class: "row" }, inp, h("button", { class: "sm", onclick: enviar }, "➤")));
   ler(); TIMER = setInterval(ler, 8000);
 }
 
 async function abaGrupo(el, g, d, gid) {
   const nomeDe = id => d.participantes.find(p => p.id === id)?.apelido || "?";
-  el.append(h("h3", {}, `Participantes (${d.participantes.length})`),
+  add(el, h("h3", {}, `Participantes (${d.participantes.length})`),
     d.participantes.map(p => h("div", { class: "card" }, h("div", { class: "row" }, h("div", {}, p.apelido + (p.papel === "organizador" ? " 👑" : "")),
       (g.papel === "organizador" && p.papel !== "organizador" && g.status === "aberto") || (p.id === g.meu_participante && p.papel !== "organizador" && g.status === "aberto")
         ? h("button", { class: "sm danger", onclick: go(async () => { if (!confirm("Remover?")) return; await api("DELETE", `/grupos/${gid}/participantes/${p.id}`); p.id === g.meu_participante ? viewGrupos() : viewGrupo(gid, "grupo"); }) }, p.id === g.meu_participante ? "Sair" : "Remover") : null))));
   if (g.papel !== "organizador") return;
-  el.append(h("h3", {}, "Convite"), h("div", { class: "card" }, h("div", { class: "code" }, g.codigo),
+  add(el, h("h3", {}, "Convite"), h("div", { class: "card" }, h("div", { class: "code" }, g.codigo),
     h("small", {}, location.origin + "/?convite=" + g.codigo),
     h("button", { class: "sm", style: "margin-top:8px", onclick: go(async () => { await navigator.clipboard.writeText(location.origin + "/?convite=" + g.codigo); toast("Link copiado!"); }) }, "Copiar link")));
   if (g.status === "aberto") {
     const a = h("select", {}, d.participantes.map(p => h("option", { value: p.id }, p.apelido))), b = h("select", {}, d.participantes.map(p => h("option", { value: p.id }, p.apelido)));
-    el.append(h("h3", {}, "Quem não pode se tirar (ex.: casais)"),
+    add(el, h("h3", {}, "Quem não pode se tirar (ex.: casais)"),
       d.exclusoes.map(e => h("div", { class: "card" }, h("div", { class: "row" }, h("div", {}, `${nomeDe(e.a)} ⇄ ${nomeDe(e.b)}`),
         h("button", { class: "sm ghost", onclick: go(async () => { await api("DELETE", `/grupos/${gid}/exclusoes/${e.id}`); viewGrupo(gid, "grupo"); }) }, "✕")))),
       h("div", { class: "row" }, a, b, h("button", { class: "sm", onclick: go(async () => { await api("POST", `/grupos/${gid}/exclusoes`, { a: a.value, b: b.value }); viewGrupo(gid, "grupo"); }) }, "＋")),
@@ -248,16 +298,16 @@ async function abaGrupo(el, g, d, gid) {
       h("button", { class: "ghost", onclick: () => viewNovoGrupo(g) }, "Editar grupo"));
   } else {
     const st = await api("GET", `/grupos/${gid}/status-revelacao`);
-    el.append(h("h3", {}, "Quem já viu o resultado"), st.participantes.map(p => h("div", { class: "card" }, (p.viu ? "✅ " : "⏳ ") + p.apelido)),
+    add(el, h("h3", {}, "Quem já viu o resultado"), st.participantes.map(p => h("div", { class: "card" }, (p.viu ? "✅ " : "⏳ ") + p.apelido)),
       h("button", { class: "ghost", onclick: go(async () => { if (!confirm("Refazer o sorteio?")) return; await api("POST", `/grupos/${gid}/refazer`); viewGrupo(gid, "grupo"); }) }, "Refazer sorteio (só se ninguém viu)"));
   }
-  el.append(h("button", { class: "danger", onclick: go(async () => { if (!confirm("Excluir o grupo e tudo dele?")) return; await api("DELETE", "/grupos/" + gid); viewGrupos(); }) }, "Excluir grupo"));
+  add(el, h("button", { class: "danger", onclick: go(async () => { if (!confirm("Excluir o grupo e tudo dele?")) return; await api("DELETE", "/grupos/" + gid); viewGrupos(); }) }, "Excluir grupo"));
 }
 
 // ── Conta ─────────────────────────────────────────────────────────────────
 function viewConta() {
-  const at = h("input", { type: "password", placeholder: "Senha atual", autocomplete: "current-password" }), nv = h("input", { type: "password", placeholder: "Nova senha (mín. 8)", autocomplete: "new-password" });
-  const ex = h("input", { type: "password", placeholder: "Sua senha, para confirmar" });
+  const at = senhaInput("Senha atual", "current-password"), nv = senhaInput("Nova senha (mín. 8)", "new-password");
+  const ex = senhaInput("Sua senha, para confirmar", "current-password");
   render(topo("Minha conta", [h("button", { class: "sm ghost", onclick: viewGrupos }, "Voltar")]), h("p", { class: "sub" }, USER.email), at, nv,
     h("button", { onclick: go(async () => { await api("POST", "/senha", { atual: at.value, nova: nv.value }); at.value = nv.value = ""; toast("Senha alterada ✅"); }) }, "Trocar senha"),
     h("h3", {}, "Excluir minha conta (LGPD)"), ex,
@@ -268,7 +318,8 @@ function viewConta() {
 (async () => {
   try {
     const m = await api("GET", "/me"); CSRF = m.csrf; USER = m.usuario;
-    const cod = new URLSearchParams(location.search).get("convite");
+    const qs = new URLSearchParams(location.search), cod = qs.get("convite"), tokenReset = qs.get("reset");
+    if (tokenReset) return viewRedefinir(tokenReset);
     if (!USER) viewAuth(cod ? "cadastro" : "login"); else cod ? viewEntrar(cod) : viewGrupos();
   } catch (e) { render(h("p", { class: "err" }, "Não foi possível conectar. Recarregue a página.")); }
 })();
