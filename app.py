@@ -9,21 +9,28 @@ O resultado do sorteio só é lido pelo próprio participante; nada expõe quem 
 """
 import argparse
 import getpass
+import hashlib
 import hmac
+import logging
 import os
 import random
 import re
 import secrets
+import smtplib
 import sqlite3
+import ssl
 import sys
+import threading
 import time
 from datetime import date, datetime, timezone
+from email.message import EmailMessage
 from functools import wraps
 from pathlib import Path
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
-from flask import Flask, abort, g, jsonify, redirect, render_template, render_template_string, request, send_from_directory, session
+from itsdangerous import BadSignature, URLSafeTimedSerializer
+from flask import Flask, abort, current_app, g, jsonify, redirect, render_template, render_template_string, request, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event, func, inspect, select, text
 from sqlalchemy.engine import Engine
@@ -97,6 +104,14 @@ class Config:
     CADASTRO_RATE_MAX = _int("CADASTRO_RATE_MAX", 5)
     MAX_GRUPOS_POR_USUARIO = _int("MAX_GRUPOS_POR_USUARIO", 20)
     MAX_PARTICIPANTES = _int("MAX_PARTICIPANTES", 200)
+    # E-mail (recuperação de senha)
+    SMTP_SERVER = os.environ.get("SMTP_SERVER", "").strip()
+    SMTP_PORT = _int("SMTP_PORT", 587)
+    SMTP_USER = os.environ.get("SMTP_USER", "").strip()
+    SMTP_PASS = os.environ.get("SMTP_PASS", "").strip()
+    SMTP_FROM = os.environ.get("SMTP_FROM", "").strip() or os.environ.get("SMTP_USER", "").strip()
+    APP_URL = os.environ.get("APP_URL", "").strip().rstrip("/")        # ex.: https://amigosecreto.leanttro.com
+    RESET_MINUTOS = _int("RESET_MINUTOS", 60)
 
 
 db = SQLAlchemy()
@@ -349,7 +364,7 @@ def sortear(ids, proibidos):
 from flask import Blueprint  # noqa: E402
 
 api = Blueprint("api", __name__, url_prefix="/api")
-ABERTAS = {"api.me", "api.login", "api.cadastro"}
+ABERTAS = {"api.me", "api.login", "api.cadastro", "api.esqueci", "api.redefinir"}
 
 
 @api.errorhandler(Erro)
@@ -442,6 +457,89 @@ def login():
 @api.post("/logout")
 def logout():
     session.clear()
+    return jsonify(ok=True)
+
+
+# ── Recuperação de senha (e-mail) ─────────────────────────────────────────
+log = logging.getLogger("amigo")
+
+
+def _enviar_email(para, assunto, texto, html):
+    """Envia via SMTP (roda em thread, não trava a requisição). Erros vão pro log."""
+    c = Config
+    if not (c.SMTP_SERVER and c.SMTP_USER and c.SMTP_PASS):
+        log.warning("SMTP não configurado; e-mail para %s NÃO enviado.", para)
+        return
+    msg = EmailMessage()
+    msg["Subject"], msg["From"], msg["To"] = assunto, f"Amigo Secreto <{c.SMTP_FROM}>", para
+    msg.set_content(texto)
+    msg.add_alternative(html, subtype="html")
+    try:
+        if c.SMTP_PORT == 465:
+            with smtplib.SMTP_SSL(c.SMTP_SERVER, c.SMTP_PORT, timeout=20, context=ssl.create_default_context()) as s:
+                s.login(c.SMTP_USER, c.SMTP_PASS)
+                s.send_message(msg)
+        else:
+            with smtplib.SMTP(c.SMTP_SERVER, c.SMTP_PORT, timeout=20) as s:
+                s.starttls(context=ssl.create_default_context())
+                s.login(c.SMTP_USER, c.SMTP_PASS)
+                s.send_message(msg)
+    except Exception:                       # noqa: BLE001
+        log.exception("Falha ao enviar e-mail de recuperação para %s", para)
+
+
+def _token_reset(u):
+    """Token assinado e com validade. Embute um pedaço do hash da senha atual: ao trocar a senha o link morre (uso único)."""
+    ser = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="reset-senha")
+    return ser.dumps({"u": u.id, "h": hashlib.sha256(u.senha_hash.encode()).hexdigest()[:20]})
+
+
+@api.post("/esqueci")
+def esqueci():
+    d = request.get_json(silent=True) or {}
+    email = limpar(d.get("email"), 254).lower()
+    if not permitir(f"esq-ip:{request.remote_addr}", 5, 3600) or not permitir(f"esq-mail:{email}", 3, 3600):
+        raise Erro("Muitas tentativas. Aguarde um pouco.", 429)
+    u = db.session.scalar(select(Usuario).where(Usuario.email == email)) if EMAIL_RE.match(email) else None
+    if u and u.ativo:                       # resposta é sempre a mesma: não revela se o e-mail existe
+        base = Config.APP_URL or request.url_root.rstrip("/")
+        link = f"{base}/?reset={_token_reset(u)}"
+        mins = Config.RESET_MINUTOS
+        if Config.DEBUG:
+            print(f"[DEV] link de redefinição para {u.email}: {link}")
+        texto = (f"Oi, {u.nome.split()[0]}!\n\nRecebemos um pedido para redefinir sua senha do Amigo Secreto.\n"
+                 f"Use o link abaixo (vale por {mins} minutos):\n\n{link}\n\n"
+                 "Se não foi você, é só ignorar este e-mail: sua senha continua a mesma.")
+        html = (f'<div style="font-family:system-ui,sans-serif;max-width:480px;margin:auto;padding:24px">'
+                f'<h2 style="color:#ff0f7b">Amigo Secreto 🎁</h2><p>Oi, {u.nome.split()[0]}!</p>'
+                f'<p>Recebemos um pedido para redefinir sua senha. O link vale por {mins} minutos.</p>'
+                f'<p><a href="{link}" style="display:inline-block;background:#ff0f7b;color:#fff;padding:14px 22px;'
+                f'border-radius:12px;text-decoration:none;font-weight:700">Criar nova senha</a></p>'
+                f'<p style="color:#666;font-size:13px">Se não foi você, ignore este e-mail: sua senha continua a mesma.</p></div>')
+        threading.Thread(target=_enviar_email, args=(u.email, "Redefinir sua senha - Amigo Secreto", texto, html), daemon=True).start()
+    return jsonify(ok=True)
+
+
+@api.post("/redefinir")
+def redefinir():
+    d = request.get_json(silent=True) or {}
+    if not permitir(f"red-ip:{request.remote_addr}", 10, 3600):
+        raise Erro("Muitas tentativas. Aguarde um pouco.", 429)
+    nova = str(d.get("nova") or "")
+    if len(nova) < 8 or len(nova) > 128:
+        raise Erro("A nova senha precisa ter de 8 a 128 caracteres.")
+    try:
+        dados = URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="reset-senha").loads(
+            str(d.get("token") or ""), max_age=Config.RESET_MINUTOS * 60)
+        u = db.session.get(Usuario, int(dados["u"]))
+    except (BadSignature, KeyError, TypeError, ValueError):
+        u = None
+    if not u or not u.ativo or not hmac.compare_digest(dados["h"], hashlib.sha256(u.senha_hash.encode()).hexdigest()[:20]):
+        raise Erro("Link inválido ou expirado. Peça um novo.", 400)
+    u.senha_hash = generate_password_hash(nova)
+    u.sessao_versao += 1                    # derruba sessões antigas
+    db.session.commit()
+    session.pop("uid", None)                # mantém o csrf da sessão para o login logo em seguida
     return jsonify(ok=True)
 
 
