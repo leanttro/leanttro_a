@@ -23,7 +23,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
-from flask import Flask, abort, g, jsonify, redirect, render_template, render_template_string, request, session
+from flask import Flask, abort, g, jsonify, redirect, render_template, render_template_string, request, send_from_directory, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event, func, inspect, select, text
 from sqlalchemy.engine import Engine
@@ -882,6 +882,12 @@ def create_app(config=None):
     @app.get("/")
     def home():
         return render_template("index.html", nonce=g.nonce)
+
+    @app.get("/og-image.png")                      # imagem de prévia do link (WhatsApp, Instagram, etc.)
+    def og_image():
+        r = send_from_directory(BASE_DIR / "static", "og-image.png", mimetype="image/png")
+        r.headers["Cache-Control"] = "public, max-age=86400"
+        return r
 
     @app.get("/healthz")
     def healthz():
