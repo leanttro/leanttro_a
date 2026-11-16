@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amigo Secreto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<style>
+{% raw %}
+:root{--primary:#ff0f7b;--secondary:#f89b29;--tertiary:#4200ff;--bg-deep:#0f0c29;--glass-border:rgba(255,255,255,.2)}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Outfit',sans-serif}
+body{background:var(--bg-deep);color:#fff;min-height:100vh;display:flex;justify-content:center;align-items:flex-start;padding:24px 0}
+.animated-bg{position:fixed;inset:0;background:linear-gradient(45deg,#4200ff,#ff0f7b,#f89b29,#00c6ff);background-size:400% 400%;animation:gm 15s ease infinite;z-index:-2}
+@keyframes gm{0%,100%{background-position:0 50%}50%{background-position:100% 50%}}
+.app-container{width:92%;max-width:460px;background:rgba(0,0,0,.45);backdrop-filter:blur(25px);-webkit-backdrop-filter:blur(25px);border:1px solid var(--glass-border);border-top:1px solid rgba(255,255,255,.5);border-radius:30px;padding:34px 26px;box-shadow:0 50px 70px -20px rgba(0,0,0,.6);animation:pop .6s cubic-bezier(.175,.885,.32,1.275)}
+@keyframes pop{from{opacity:0;transform:scale(.9) translateY(30px)}to{opacity:1;transform:none}}
+h1{font-weight:900;font-size:2rem;text-align:center;text-transform:uppercase;background:linear-gradient(to right,#fff,#ffcc00);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+h2{font-size:1.15rem;font-weight:700;margin:4px 0}h3{font-size:.95rem;margin:14px 0 8px;color:var(--secondary)}
+.sub{color:rgba(255,255,255,.8);text-align:center;margin-bottom:22px;font-weight:300}
+.badge{display:block;width:fit-content;margin:0 auto 10px;background:var(--primary);padding:2px 12px;border-radius:20px;font-size:.85rem;font-weight:700;transform:rotate(-4deg)}
+input,textarea,select{width:100%;background:rgba(0,0,0,.35);border:2px solid transparent;padding:15px;border-radius:14px;color:#fff;font-size:16px;outline:none;margin-bottom:10px}
+input:focus,textarea:focus,select:focus{border-color:var(--secondary);background:rgba(0,0,0,.5)}
+select option{color:#000}
+button{width:100%;padding:15px;background:linear-gradient(90deg,var(--primary),var(--secondary));color:#fff;border:0;border-radius:14px;font-weight:700;font-size:15px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;margin-top:6px;transition:.2s}
+button:hover{transform:translateY(-2px)}button.ghost{background:rgba(255,255,255,.12)}button.sm{width:auto;padding:8px 14px;font-size:.72rem;margin:0}
+button.danger{background:#c0262d}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}.row>button{flex:0 0 auto}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.tabs{display:flex;gap:6px;margin-bottom:18px;background:rgba(0,0,0,.25);padding:5px;border-radius:14px}
+.tab{flex:1;padding:10px 4px;text-align:center;border-radius:10px;font-size:.7rem;font-weight:700;cursor:pointer;color:rgba(255,255,255,.65);text-transform:uppercase}
+.tab.on{background:#fff;color:var(--bg-deep)}
+.card{background:rgba(255,255,255,.07);padding:14px;border-radius:14px;margin-bottom:10px;cursor:default}
+.card.click{cursor:pointer}.card.click:hover{background:rgba(255,255,255,.14)}
+.card small{opacity:.7;display:block;margin-top:4px}.who{font-weight:700;color:var(--secondary);text-transform:uppercase;font-size:.8rem}
+.reveal{text-align:center;padding:34px 16px;background:linear-gradient(135deg,rgba(66,0,255,.25),rgba(255,15,123,.25));border-radius:22px;margin-bottom:14px}
+#nome{font-size:2.4rem;font-weight:900;filter:blur(14px);cursor:pointer;transition:.5s;user-select:none;word-break:break-word}
+#nome.on{filter:none;text-shadow:0 0 20px rgba(248,155,41,.8)}
+.chat{max-height:300px;overflow-y:auto;padding:10px;background:rgba(0,0,0,.25);border-radius:14px;margin-bottom:10px}
+.msg{background:rgba(255,255,255,.12);padding:9px 13px;border-radius:14px 14px 14px 2px;margin-bottom:8px;width:fit-content;max-width:85%;font-size:.9rem;word-break:break-word}
+.msg.me{background:var(--primary);border-radius:14px 14px 2px 14px;margin-left:auto}
+.err{color:#ff8a8a;margin:6px 0;font-size:.9rem}.muted{opacity:.6;text-align:center;padding:10px}
+a{color:#fff}.code{font-family:monospace;font-size:1.3rem;letter-spacing:3px;color:var(--secondary)}
+#toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-100px);background:#fff;color:#000;padding:13px 26px;border-radius:50px;font-weight:700;opacity:0;transition:.4s;z-index:9}
+#toast.show{opacity:1;transform:translateX(-50%)}
+label{font-size:.8rem;opacity:.8;display:block;margin:2px 0 4px}
+
+{% endraw %}
+</style>
+</head>
+<body>
+<div class="animated-bg"></div>
+<div id="toast"></div>
+<main class="app-container" id="app"></main>
+<script nonce="{{ nonce }}">
+{% raw %}
+"use strict";
+// Todo texto de usuário entra via textContent (nunca innerHTML) -> sem XSS.
+const $app = document.getElementById("app");
+let CSRF = "", USER = null, TIMER = null;
+
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k === "class") e.className = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v !== null && v !== undefined && v !== false) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat()) if (c !== null && c !== undefined && c !== false) e.append(c.nodeType ? c : document.createTextNode(c));
+  return e;
+}
+function toast(m) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2800); }
+function render(...nodes) { clearInterval(TIMER); $app.replaceChildren(...nodes); }
+
+async function api(method, url, body) {
+  const r = await fetch("/api" + url, { method, credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "X-CSRF": CSRF }, body: body ? JSON.stringify(body) : undefined });
+  let d = {}; try { d = await r.json(); } catch (_) {}
+  if (r.status === 401 && USER) { USER = null; viewAuth(); throw new Error("Sessão expirada."); }
+  if (!r.ok || d.ok === false) throw new Error(d.erro || "Erro inesperado.");
+  return d;
+}
+const go = (fn) => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message); } };
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+function viewAuth(modo = "login") {
+  const erro = h("p", { class: "err" });
+  const f = { nome: h("input", { placeholder: "Seu nome", autocomplete: "name" }), email: h("input", { type: "email", placeholder: "Seu e-mail", autocomplete: "email" }),
+    senha: h("input", { type: "password", placeholder: modo === "login" ? "Senha" : "Senha (mín. 8 caracteres)", autocomplete: modo === "login" ? "current-password" : "new-password" }) };
+  const enviar = async () => {
+    erro.textContent = "";
+    try {
+      const d = await api("POST", modo === "login" ? "/login" : "/cadastro", { nome: f.nome.value, email: f.email.value, senha: f.senha.value });
+      CSRF = d.csrf; USER = d.usuario; confetti({ particleCount: 100, spread: 100, origin: { y: .6 } });
+      const cod = new URLSearchParams(location.search).get("convite");
+      cod ? viewEntrar(cod) : viewGrupos();
+    } catch (e) { erro.textContent = e.message; }
+  };
+  render(h("span", { class: "badge" }, "AMIGO SECRETO"), h("h1", {}, modo === "login" ? "Entrar" : "Criar conta"),
+    h("p", { class: "sub" }, "Organize sua confra em minutos"),
+    modo === "cadastro" ? f.nome : null, f.email, f.senha, erro,
+    h("button", { onclick: enviar }, modo === "login" ? "Partiu amigar 🚀" : "Criar minha conta"),
+    h("button", { class: "ghost", onclick: () => viewAuth(modo === "login" ? "cadastro" : "login") }, modo === "login" ? "Não tenho conta" : "Já tenho conta"));
+}
+
+// ── Lista de grupos ───────────────────────────────────────────────────────
+async function viewGrupos() {
+  render(h("p", { class: "muted" }, "Carregando..."));
+  try {
+    const { grupos } = await api("GET", "/grupos");
+    render(topo("Olá, " + USER.nome.split(" ")[0] + "!", [h("button", { class: "sm ghost", onclick: viewConta }, "Conta"),
+      h("button", { class: "sm ghost", onclick: go(async () => { await api("POST", "/logout"); USER = null; const m = await api("GET", "/me"); CSRF = m.csrf; viewAuth(); }) }, "Sair")]),
+      h("button", { onclick: () => viewNovoGrupo() }, "＋ Criar grupo"), h("button", { class: "ghost", onclick: () => viewEntrar() }, "Entrar com código"),
+      h("h3", {}, "Meus grupos"),
+      grupos.length ? grupos.map(g => h("div", { class: "card click", onclick: () => viewGrupo(g.id) },
+        h("div", { class: "who" }, g.nome), h("small", {}, `${g.total} participante(s) · ${g.status === "sorteado" ? "🎲 sorteado" : "aguardando sorteio"}${g.data_evento ? " · " + fmtData(g.data_evento) : ""}`)))
+        : h("p", { class: "muted" }, "Você ainda não está em nenhum grupo."));
+  } catch (e) { toast(e.message); }
+}
+const fmtData = (iso) => iso.split("-").reverse().join("/");
+function topo(titulo, botoes) { return h("div", { class: "top" }, h("h2", {}, titulo), h("div", { class: "row" }, botoes)); }
+
+function viewEntrar(codigo = "") {
+  const c = h("input", { placeholder: "Código do convite", value: codigo, maxlength: 12 }), ap = h("input", { placeholder: "Seu apelido no grupo (opcional)", maxlength: 40 });
+  render(topo("Entrar em um grupo", [h("button", { class: "sm ghost", onclick: viewGrupos }, "Voltar")]), c, ap,
+    h("button", { onclick: go(async () => { const d = await api("POST", "/entrar", { codigo: c.value, apelido: ap.value }); history.replaceState({}, "", "/"); viewGrupo(d.grupo.id); }) }, "Entrar"));
+}
+
+function viewNovoGrupo(g = null) {
+  const f = { nome: h("input", { placeholder: "Nome (ex.: Confra 2026)", maxlength: 80, value: g?.nome || "" }),
+    descricao: h("textarea", { placeholder: "Regras / observações (opcional)", rows: 3, maxlength: 500 }, g?.descricao || ""),
+    data: h("input", { type: "date", value: g?.data_evento || "" }),
+    min: h("input", { type: "number", min: 0, placeholder: "Valor mín. (R$)", value: g?.valor_min ?? "" }), max: h("input", { type: "number", min: 0, placeholder: "Valor máx. (R$)", value: g?.valor_max ?? "" }),
+    tema: h("select", {}, ["festa", "natal", "aniversario", "confra"].map(t => h("option", { value: t, selected: g?.tema === t }, t))),
+    apelido: h("input", { placeholder: "Seu apelido no grupo", maxlength: 40 }) };
+  render(topo(g ? "Editar grupo" : "Novo grupo", [h("button", { class: "sm ghost", onclick: () => g ? viewGrupo(g.id) : viewGrupos() }, "Voltar")]),
+    f.nome, f.descricao, h("label", {}, "Data do evento"), f.data, h("div", { class: "row" }, f.min, f.max), h("label", {}, "Tema"), f.tema, g ? null : f.apelido,
+    h("button", { onclick: go(async () => {
+      const body = { nome: f.nome.value, descricao: f.descricao.value, data_evento: f.data.value, valor_min: f.min.value, valor_max: f.max.value, tema: f.tema.value, apelido: f.apelido.value };
+      const d = g ? await api("PUT", "/grupos/" + g.id, body) : await api("POST", "/grupos", body);
+      viewGrupo(d.grupo.id);
+    }) }, g ? "Salvar" : "Criar grupo"));
+}
+
+// ── Tela do grupo ─────────────────────────────────────────────────────────
+async function viewGrupo(gid, aba = "amigo") {
+  render(h("p", { class: "muted" }, "Carregando..."));
+  let d; try { d = await api("GET", "/grupos/" + gid); } catch (e) { toast(e.message); return viewGrupos(); }
+  const g = d.grupo, org = g.papel === "organizador", sorteado = g.status === "sorteado";
+  const corpo = h("div");
+  const abas = [["amigo", "🤫 Quem tirei?"], ["desejos", "🎁 Desejos"], ["chat", "💬 Chat"], ["grupo", org ? "⚙️ Grupo" : "👥 Grupo"]];
+  const tabs = h("div", { class: "tabs" }, abas.map(([k, t]) => h("div", { class: "tab" + (k === aba ? " on" : ""), onclick: () => viewGrupo(gid, k) }, t)));
+  render(topo(g.nome, [h("button", { class: "sm ghost", onclick: viewGrupos }, "Voltar")]),
+    g.valor_max ? h("p", { class: "sub" }, `Presente: R$ ${g.valor_min ?? 0} a R$ ${g.valor_max}${g.data_evento ? " · " + fmtData(g.data_evento) : ""}`) : null, tabs, corpo);
+  ({ amigo: abaAmigo, desejos: abaDesejos, chat: abaChat, grupo: abaGrupo })[aba](corpo, g, d, gid);
+}
+
+async function abaAmigo(el, g) {
+  if (g.status !== "sorteado") {
+    el.append(h("div", { class: "reveal" }, h("h2", {}, "Aguardando o sorteio…"), h("p", { class: "sub" }, `${g.total} participante(s) no grupo.`)));
+    return;
+  }
+  const r = await api("GET", `/grupos/${g.id}/meu-amigo`);
+  const nome = h("div", { id: "nome" }, r.nome);
+  nome.addEventListener("click", () => { nome.classList.toggle("on"); if (nome.classList.contains("on")) confetti({ particleCount: 150, spread: 70, origin: { y: .6 }, colors: ["#ff0f7b", "#f89b29", "#4200ff"] }); });
+  el.append(h("div", { class: "reveal" }, h("p", { class: "sub" }, "Sua missão é presentear:"), nome, h("p", { class: "sub", style: "margin-top:12px;font-size:.75rem" }, "(toque no nome para revelar)")),
+    h("h3", {}, "O que essa pessoa quer"),
+    r.desejos.length ? r.desejos.map(w => h("div", { class: "card" }, w.observacao || "", w.link ? h("small", {}, h("a", { href: w.link, target: "_blank", rel: "noopener noreferrer nofollow" }, "Ver link 🔗")) : null))
+      : h("p", { class: "muted" }, "Ainda não pediu nada. Use o chat anônimo!"));
+}
+
+async function abaDesejos(el, g) {
+  const link = h("input", { type: "url", placeholder: "Link (opcional)" }), obs = h("input", { placeholder: "O que você quer? (cor, tamanho…)", maxlength: 500 }), lista = h("div");
+  const carregar = go(async () => {
+    const { desejos } = await api("GET", `/grupos/${g.id}/desejos`);
+    lista.replaceChildren(...(desejos.length ? desejos.map(w => h("div", { class: "card" }, h("div", { class: "who" }, w.meu ? "Eu quero:" : w.dono + " quer:"), h("div", {}, w.observacao || ""),
+      w.link ? h("small", {}, h("a", { href: w.link, target: "_blank", rel: "noopener noreferrer nofollow" }, "Ver link 🔗")) : null,
+      w.meu ? h("button", { class: "sm ghost", style: "margin-top:8px", onclick: go(async () => { await api("DELETE", `/grupos/${g.id}/desejos/${w.id}`); carregar(); }) }, "Remover") : null))
+      : [h("p", { class: "muted" }, "Ninguém pediu nada ainda…")]));
+  });
+  el.append(h("h3", {}, "Adicionar meu presente"), link, obs,
+    h("button", { onclick: go(async () => { await api("POST", `/grupos/${g.id}/desejos`, { link: link.value, observacao: obs.value }); link.value = obs.value = ""; toast("Desejo salvo!"); carregar(); }) }, "Publicar desejo ✨"),
+    h("h3", {}, "Lista da galera"), lista);
+  carregar();
+}
+
+function abaChat(el, g) {
+  if (g.status !== "sorteado") { el.append(h("p", { class: "muted" }, "O chat abre depois do sorteio.")); return; }
+  let canal = "para_meu_amigo";
+  const box = h("div", { class: "chat" }), inp = h("input", { placeholder: "Mensagem anônima…", maxlength: 1000 });
+  const sel = h("select", {}, h("option", { value: "para_meu_amigo" }, "Falar com quem eu tirei"), h("option", { value: "do_meu_amigo" }, "Falar com meu amigo secreto"));
+  const ler = async () => {
+    try {
+      const { mensagens } = await api("GET", `/grupos/${g.id}/chat/${canal}`);
+      box.replaceChildren(...(mensagens.length ? mensagens.map(m => h("div", { class: "msg" + (m.minha ? " me" : "") }, m.texto)) : [h("p", { class: "muted" }, "Nenhuma mensagem ainda…")]));
+      box.scrollTop = box.scrollHeight;
+    } catch (_) {}
+  };
+  const enviar = go(async () => { if (!inp.value.trim()) return; await api("POST", `/grupos/${g.id}/chat/${canal}`, { texto: inp.value }); inp.value = ""; ler(); });
+  sel.addEventListener("change", () => { canal = sel.value; ler(); });
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") enviar(); });
+  el.append(sel, box, h("div", { class: "row" }, inp, h("button", { class: "sm", onclick: enviar }, "➤")));
+  ler(); TIMER = setInterval(ler, 8000);
+}
+
+async function abaGrupo(el, g, d, gid) {
+  const nomeDe = id => d.participantes.find(p => p.id === id)?.apelido || "?";
+  el.append(h("h3", {}, `Participantes (${d.participantes.length})`),
+    d.participantes.map(p => h("div", { class: "card" }, h("div", { class: "row" }, h("div", {}, p.apelido + (p.papel === "organizador" ? " 👑" : "")),
+      (g.papel === "organizador" && p.papel !== "organizador" && g.status === "aberto") || (p.id === g.meu_participante && p.papel !== "organizador" && g.status === "aberto")
+        ? h("button", { class: "sm danger", onclick: go(async () => { if (!confirm("Remover?")) return; await api("DELETE", `/grupos/${gid}/participantes/${p.id}`); p.id === g.meu_participante ? viewGrupos() : viewGrupo(gid, "grupo"); }) }, p.id === g.meu_participante ? "Sair" : "Remover") : null))));
+  if (g.papel !== "organizador") return;
+  el.append(h("h3", {}, "Convite"), h("div", { class: "card" }, h("div", { class: "code" }, g.codigo),
+    h("small", {}, location.origin + "/?convite=" + g.codigo),
+    h("button", { class: "sm", style: "margin-top:8px", onclick: go(async () => { await navigator.clipboard.writeText(location.origin + "/?convite=" + g.codigo); toast("Link copiado!"); }) }, "Copiar link")));
+  if (g.status === "aberto") {
+    const a = h("select", {}, d.participantes.map(p => h("option", { value: p.id }, p.apelido))), b = h("select", {}, d.participantes.map(p => h("option", { value: p.id }, p.apelido)));
+    el.append(h("h3", {}, "Quem não pode se tirar (ex.: casais)"),
+      d.exclusoes.map(e => h("div", { class: "card" }, h("div", { class: "row" }, h("div", {}, `${nomeDe(e.a)} ⇄ ${nomeDe(e.b)}`),
+        h("button", { class: "sm ghost", onclick: go(async () => { await api("DELETE", `/grupos/${gid}/exclusoes/${e.id}`); viewGrupo(gid, "grupo"); }) }, "✕")))),
+      h("div", { class: "row" }, a, b, h("button", { class: "sm", onclick: go(async () => { await api("POST", `/grupos/${gid}/exclusoes`, { a: a.value, b: b.value }); viewGrupo(gid, "grupo"); }) }, "＋")),
+      h("button", { onclick: go(async () => { if (!confirm("Sortear agora? Depois ninguém mais entra.")) return; await api("POST", `/grupos/${gid}/sortear`); confetti({ particleCount: 200, spread: 120 }); viewGrupo(gid, "amigo"); }) }, "🎲 Sortear!"),
+      h("button", { class: "ghost", onclick: () => viewNovoGrupo(g) }, "Editar grupo"));
+  } else {
+    const st = await api("GET", `/grupos/${gid}/status-revelacao`);
+    el.append(h("h3", {}, "Quem já viu o resultado"), st.participantes.map(p => h("div", { class: "card" }, (p.viu ? "✅ " : "⏳ ") + p.apelido)),
+      h("button", { class: "ghost", onclick: go(async () => { if (!confirm("Refazer o sorteio?")) return; await api("POST", `/grupos/${gid}/refazer`); viewGrupo(gid, "grupo"); }) }, "Refazer sorteio (só se ninguém viu)"));
+  }
+  el.append(h("button", { class: "danger", onclick: go(async () => { if (!confirm("Excluir o grupo e tudo dele?")) return; await api("DELETE", "/grupos/" + gid); viewGrupos(); }) }, "Excluir grupo"));
+}
+
+// ── Conta ─────────────────────────────────────────────────────────────────
+function viewConta() {
+  const at = h("input", { type: "password", placeholder: "Senha atual", autocomplete: "current-password" }), nv = h("input", { type: "password", placeholder: "Nova senha (mín. 8)", autocomplete: "new-password" });
+  const ex = h("input", { type: "password", placeholder: "Sua senha, para confirmar" });
+  render(topo("Minha conta", [h("button", { class: "sm ghost", onclick: viewGrupos }, "Voltar")]), h("p", { class: "sub" }, USER.email), at, nv,
+    h("button", { onclick: go(async () => { await api("POST", "/senha", { atual: at.value, nova: nv.value }); at.value = nv.value = ""; toast("Senha alterada ✅"); }) }, "Trocar senha"),
+    h("h3", {}, "Excluir minha conta (LGPD)"), ex,
+    h("button", { class: "danger", onclick: go(async () => { if (!confirm("Isso apaga sua conta e seus dados. Continuar?")) return; await api("POST", "/conta/excluir", { senha: ex.value }); USER = null; const m = await api("GET", "/me"); CSRF = m.csrf; viewAuth(); }) }, "Excluir conta"));
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    const m = await api("GET", "/me"); CSRF = m.csrf; USER = m.usuario;
+    const cod = new URLSearchParams(location.search).get("convite");
+    if (!USER) viewAuth(cod ? "cadastro" : "login"); else cod ? viewEntrar(cod) : viewGrupos();
+  } catch (e) { render(h("p", { class: "err" }, "Não foi possível conectar. Recarregue a página.")); }
+})();
+
+{% endraw %}
+</script>
+</body>
+</html>
