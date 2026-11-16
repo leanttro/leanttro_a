@@ -71,7 +71,7 @@ function h(tag, props, ...kids) {
   return e;
 }
 function toast(m) { const t = document.getElementById("toast"); t.textContent = m; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 2800); }
-function render(...nodes) { clearInterval(TIMER); $app.replaceChildren(...nodes); }
+function render(...nodes) { clearInterval(TIMER); $app.replaceChildren(...nodes.flat().filter(n => n !== null && n !== undefined && n !== false)); }
 
 async function api(method, url, body) {
   const r = await fetch("/api" + url, { method, credentials: "same-origin",
@@ -100,7 +100,7 @@ function viewAuth(modo = "login") {
   render(h("span", { class: "badge" }, "AMIGO SECRETO"), h("h1", {}, modo === "login" ? "Entrar" : "Criar conta"),
     h("p", { class: "sub" }, "Organize sua confra em minutos"),
     modo === "cadastro" ? f.nome : null, f.email, f.senha, erro,
-    h("button", { onclick: enviar }, modo === "login" ? "Partiu amigar 🚀" : "Criar minha conta"),
+    h("button", { onclick: enviar }, modo === "login" ? "Entrar" : "Criar minha conta"),
     h("button", { class: "ghost", onclick: () => viewAuth(modo === "login" ? "cadastro" : "login") }, modo === "login" ? "Não tenho conta" : "Já tenho conta"));
 }
 
@@ -128,7 +128,7 @@ function viewEntrar(codigo = "") {
 }
 
 function viewNovoGrupo(g = null) {
-  const f = { nome: h("input", { placeholder: "Nome (ex.: Confra 2026)", maxlength: 80, value: g?.nome || "" }),
+  const f = { nome: h("input", { placeholder: "Nome (ex.: Confra 2027)", maxlength: 80, value: g?.nome || "" }),
     descricao: h("textarea", { placeholder: "Regras / observações (opcional)", rows: 3, maxlength: 500 }, g?.descricao || ""),
     data: h("input", { type: "date", value: g?.data_evento || "" }),
     min: h("input", { type: "number", min: 0, placeholder: "Valor mín. (R$)", value: g?.valor_min ?? "" }), max: h("input", { type: "number", min: 0, placeholder: "Valor máx. (R$)", value: g?.valor_max ?? "" }),
